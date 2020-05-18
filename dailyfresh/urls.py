@@ -22,6 +22,6 @@ urlpatterns = [
     url(r'^tinymce/', include('tinymce.urls')),  # 富文本编辑器
     url(r'^user/', include(('user.urls', 'user'), namespace='user')),  # 用户模块
     url(r'^cart/', include(('cart.urls', 'cart'), namespace='cart')),  # 购物车模块
-    url(r'^order/', include(('order.urls', 'goods'), namespace='goods')),  # 订单模块
+    url(r'^order/', include(('order.urls', 'order'), namespace='order')),  # 订单模块
     url(r'^', include(('goods.urls', 'goods'), namespace='goods')),  # 商品模块
 ]
