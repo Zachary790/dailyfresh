@@ -6,6 +6,7 @@ from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
 from itsdangerous import SignatureExpired
 from django.conf import settings
 from django.http import HttpResponse
+from django.contrib.auth import authenticate, login
 from django.core.mail import send_mail
 from celery_tasks.tasks import send_register_active_email
 import re
@@ -165,4 +166,41 @@ class LoginView(View):
     """登录"""
     def get(self, request):
         """显示登录页面"""
-        return render(request, 'login.html')
+        # 判断是否记住用户名
+        if 'username' in request.COOKIES:
+            username = request.COOKIES.get('username')
+            checked = 'checked'
+        else:
+            username = ''
+            checked = ''
+        return render(request, 'login.html', {'username': username, 'checked': checked})
+
+    def post(self, request):
+        """登录的校验"""
+        # 接受数据
+        username = request.POST.get('username')
+        password = request.POST.get('pwd')
+        # 校验数据
+        if not all([username, password]):
+            return render(request, 'login.html', {'errmsg': '数据不完整'})
+        # 业务处理
+        user = authenticate(username=username, password=password)  # 它会自动关联数据库的is_active
+        # AUTHENTICATION_BACKENDS = ['django.contrib.auth.backends.AllowAllUsersModelBackend'] 添加解决问题
+        if user is not None:
+            if user.is_active:
+                # 用户已激活
+                # 记录登录状态
+                login(request, user)
+                response = redirect(reverse('goods:index'))
+                # 判断是否需要记住用户名
+                remember = request.POST.get('remember')
+                if remember == 'on':
+                    # 记住用户名
+                    response.set_cookie('username', username, max_age=7*24*3600)
+                else:
+                    response.delete_cookie('username')
+                return response
+            else:
+                return render(request, 'login.html', {"errmsg": '账户未激活'})
+        else:
+            return render(request, 'login.html', {"errmsg": '用户名或者密码错误'})
