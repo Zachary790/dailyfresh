@@ -7,6 +7,7 @@ from itsdangerous import SignatureExpired
 from django.conf import settings
 from django.http import HttpResponse
 from django.contrib.auth import authenticate, login
+from utils.mixin import LoginRequiredMixin
 from django.core.mail import send_mail
 from celery_tasks.tasks import send_register_active_email
 import re
@@ -191,7 +192,9 @@ class LoginView(View):
                 # 用户已激活
                 # 记录登录状态
                 login(request, user)
-                response = redirect(reverse('goods:index'))
+                # 获取登录后索要跳转到的地址,默认跳转到首页
+                next_url = request.GET.get('next', reverse('goods:index'))
+                response = redirect(next_url)
                 # 判断是否需要记住用户名
                 remember = request.POST.get('remember')
                 if remember == 'on':
@@ -204,3 +207,30 @@ class LoginView(View):
                 return render(request, 'login.html', {"errmsg": '账户未激活'})
         else:
             return render(request, 'login.html', {"errmsg": '用户名或者密码错误'})
+
+
+# user
+class UserInfoView(LoginRequiredMixin, View):
+    """用户中心信息页"""
+    def get(self, request):
+        """显示"""
+        # page='user'
+        return render(request, 'user_center_info.html', {'page': 'user'})
+
+
+# user/order
+class UserOrderView(LoginRequiredMixin, View):
+    """用户中心订单页"""
+    def get(self, request):
+        """显示"""
+        # page='order'
+        return render(request, 'user_center_order.html', {'page': 'order'})
+
+
+# user/address
+class AddressView(LoginRequiredMixin, View):
+    """用户中心地址页"""
+    def get(self, request):
+        """显示"""
+        # page='address'
+        return render(request, 'user_center_site.html', {'page': 'address'})
