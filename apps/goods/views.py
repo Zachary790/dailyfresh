@@ -5,6 +5,7 @@ from goods.models import GoodsType, IndexGoodsBanner, IndexTypeGoodsBanner, Inde
 from order.models import OrderGoods
 from django_redis import get_redis_connection
 from django.core.cache import cache
+from django.core.paginator import Paginator
 # Create your views here.
 
 
@@ -93,3 +94,77 @@ class DetailView(View):
                    'same_spu_skus': same_spu_skus,
                    'cart_count': cart_count}
         return render(request, 'detail.html', context)
+
+
+# 种类id 页面 排序的方式
+# /list/种类ID/页码/排序的方式
+# /list/种类id/页码？sort=排序方式
+class ListView(View):
+    """列表页"""
+    def get(self, request, type_id, page):
+        """显示列表页"""
+        # 获取种类id
+        try:
+            type = GoodsType.objects.get(id=type_id)
+        except GoodsType.DoesNotExist:
+            return redirect(reverse('goods:index'))
+        # 获取商品的分类信息
+        types = GoodsType.objects.all()
+        # 获取排序的方式
+        # sort=default 按照默认id排序
+        # sort=price 按照商品价格
+        # sort=hot 按照人气，销量
+        sort = request.GET.get('sort')
+        # 获取分类商品信息
+        if sort == 'price':
+            skus = GoodsSKU.objects.filter(type=type).order_by('price')
+        elif sort == 'hot':
+            skus = GoodsSKU.objects.filter(type=type).order_by('sales')
+        else:
+            sort = 'default'
+            skus = GoodsSKU.objects.filter(type=type).order_by('-id')
+        # 对数据进行分页
+        paginator = Paginator(skus, 1)
+        # 获取第page页的内容
+        try:
+            page = int(page)
+        except Exception as e:
+            page = 1
+        # 页不能超过最大页码
+        if page > paginator.num_pages:
+            page = 1
+        # 获取第page页的Page实例对象
+        skus_page = paginator.page(page)
+        # 进行页面的控制，页面上最多5个页码
+        # 1.总也书小于5页，页面上显示所以页面
+        # 2.如果当前页是前3页，显示1-5
+        # 3.如果当前页是后3页，显示后5页
+        # 4.显示当前页的前两页，和后两页
+        num_pages = paginator.num_pages
+        if num_pages < 5:
+            pages = range(1, num_pages+1)
+        elif page <= 3:
+            pages = range(1, 6)
+        elif num_pages - page <= 2:
+            pages = range(num_pages-4, num_pages-1)
+        else:
+            pages = range(page-2, page+3)
+        # 获取新品信息
+        new_skus = GoodsSKU.objects.filter(type=type).order_by('-create_time')[:2]
+        # 获取用户购物车中的商品信息
+        user = request.user
+        cart_count = 0
+        if user.is_authenticated:
+            # 用户已登录
+            conn = get_redis_connection('default')
+            cart_key = 'cart_%d' % user.id
+            cart_count = conn.hlen(cart_key)
+
+        context = {'type': type,
+                   'types': types,
+                   'skus_page': skus_page,
+                   'new_skus': new_skus,
+                   'cart_count': cart_count,
+                   'pages': pages,
+                   'sort': sort}
+        return render(request, 'list.html', context)
