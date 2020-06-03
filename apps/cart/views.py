@@ -155,4 +155,4 @@ class CartDeleteView(View):
         for val in vals:
             total_count += int(val)
         # 返回应答
-        return JsonResponse({'res': 3,'total_count': total_count, 'errmsg': '删除成功'})
+        return JsonResponse({'res': 3, 'total_count': total_count, 'errmsg': '删除成功'})
